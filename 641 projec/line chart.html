@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Line Chart</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/4.1.2/papaparse.min.js"></script>
+</head>
+<body>
+
+<input type="file" id="csvFileInput" accept=".csv" onchange="handleFileSelect(event)" >
+<div>
+    <label>
+        <input type="checkbox" class="lineCheckbox" value="Anthropology" onchange="updateChartVisibility()"> Anthropology
+    </label>
+    <label>
+        <input type="checkbox" class="lineCheckbox" value="Archaeology" onchange="updateChartVisibility()"> Archaeology
+    </label>
+    <label>
+        <input type="checkbox" class="lineCheckbox" value="Sociology" onchange="updateChartVisibility()"> Sociology
+    </label>
+    <label>
+        <input type="checkbox" class="lineCheckbox" value="Psychology" onchange="updateChartVisibility()"> Psychology
+    </label>
+</div>
+
+<canvas id="myChart"></canvas>
+
+<script>
+    let chart;
+
+    function handleFileSelect(event) {
+        const file = event.target.files[0];
+        Papa.parse(file, {
+            header: true,
+            dynamicTyping: true,
+            complete: function(results) {
+                const data = results.data;
+                createChart(data);
+            }
+        });
+    }
+
+    function createChart(data) {
+        const labels = data.map(row => row.YEAR);
+        const anthropologyData = data.map(row => row.Anthropology);
+        const archeologyData = data.map(row => row.Archaeology);
+        const sociologyData = data.map(row => row.Sociology);
+        const psychologyData = data.map(row => row.Psychology);
+
+        const ctx = document.getElementById('myChart').getContext('2d');
+        if (chart) {
+            chart.destroy();
+        }
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Anthropology',
+                        data: anthropologyData,
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                    },
+                    {
+                        label: 'Archaeology',
+                        data: archeologyData,
+                        borderColor: 'rgb(54, 162, 235)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    },
+                    {
+                        label: 'Sociology',
+                        data: sociologyData,
+                        borderColor: 'rgb(255, 206, 86)',
+                        backgroundColor: 'rgba(255, 206, 86, 0.5)',
+                    },
+                    {
+                        label: 'Psychology',
+                        data: psychologyData,
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.5)',
+                    },
+                ]
+            },
+            options: {
+                
+                plugins: {
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                }
+            }
+        });
+    }
+
+    function updateChartVisibility() {
+        const checkboxes = document.querySelectorAll('.lineCheckbox');
+        const selectedValues = Array.from(checkboxes).filter(checkbox => checkbox.checked).map(checkbox => checkbox.value);
+
+        chart.data.datasets.forEach(dataset => {
+            if (selectedValues.includes(dataset.label) || selectedValues.includes('all')) {
+                dataset.hidden = false;
+            } else {
+                dataset.hidden = true;
+            }
+        });
+
+        chart.update();
+    }
+</script>
+
+</body>
+</html>

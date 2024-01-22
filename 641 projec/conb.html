@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Line Chart and Word Cloud from CSV</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/4.1.2/papaparse.min.js"></script>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script src="https://cdn.rawgit.com/jasondavies/d3-cloud/v1.2.0/build/d3.layout.cloud.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            padding: 20px;
+            text-align: center;
+        }
+        #wordcloud {
+            text-align: center;
+            position: relative;
+            width: 800px;
+            height: 600px;
+            border: 10px solid lightgray;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <input type="file" id="csvFileInputLineChart" accept=".csv" onchange="handleFileSelectLineChart(event)" >
+    <div>
+        <label>
+            <input type="checkbox" class="lineCheckbox" value="Anthropology" onchange="updateChartVisibility()"> Anthropology
+        </label>
+        <label>
+            <input type="checkbox" class="lineCheckbox" value="Archaeology" onchange="updateChartVisibility()"> Archaeology
+        </label>
+        <label>
+            <input type="checkbox" class="lineCheckbox" value="Sociology" onchange="updateChartVisibility()"> Sociology
+        </label>
+        <label>
+            <input type="checkbox" class="lineCheckbox" value="Psychology" onchange="updateChartVisibility()"> Psychology
+        </label>
+    </div>
+    <canvas id="myChart"></canvas>
+</div>
+
+<div class="container">
+    <input type="file" id="csvFileInputWordCloud" accept=".csv" onchange="handleFileSelectWordCloud(event)">
+    <div id="wordcloud"></div>
+</div>
+
+<script>
+    let chart;
+
+    function handleFileSelectLineChart(event) {
+    const file = event.target.files[0];
+    Papa.parse(file, {
+        header: true,
+        dynamicTyping: true,
+        complete: function(results) {
+            const data = results.data;
+            createLineChart(data); 
+        }
+    });
+}
+
+function createLineChart(data) { 
+    const labels = data.map(row => row.YEAR);
+    const anthropologyData = data.map(row => row.Anthropology);
+    const archeologyData = data.map(row => row.Archaeology);
+    const sociologyData = data.map(row => row.Sociology);
+    const psychologyData = data.map(row => row.Psychology);
+
+    const ctx = document.getElementById('myChart').getContext('2d');
+    if (chart) {
+        chart.destroy();
+    }
+    chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                    {
+                        label: 'Anthropology',
+                        data: anthropologyData,
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                    },
+                    {
+                        label: 'Archaeology',
+                        data: archeologyData,
+                        borderColor: 'rgb(54, 162, 235)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    },
+                    {
+                        label: 'Sociology',
+                        data: sociologyData,
+                        borderColor: 'rgb(255, 206, 86)',
+                        backgroundColor: 'rgba(255, 206, 86, 0.5)',
+                    },
+                    {
+                        label: 'Psychology',
+                        data: psychologyData,
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.5)',
+                    },
+                ]
+            },
+            options: {
+                
+                plugins: {
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                }
+            }
+        });
+    }
+
+    function updateChartVisibility() {
+        const checkboxes = document.querySelectorAll('.lineCheckbox');
+        const selectedValues = Array.from(checkboxes).filter(checkbox => checkbox.checked).map(checkbox => checkbox.value);
+
+        chart.data.datasets.forEach(dataset => {
+            if (selectedValues.includes(dataset.label) || selectedValues.includes('all')) {
+                dataset.hidden = false;
+            } else {
+                dataset.hidden = true;
+            }
+        });
+
+        chart.update();
+    }
+
+    // Word Cloud functions
+    function handleFileSelectWordCloud(event) {
+        const fileInput = event.target;
+        const file = fileInput.files[0];
+
+        if (file) {
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                const csvContent = e.target.result;
+                generateWordCloud(csvContent);
+            };
+
+            reader.readAsText(file);
+        }
+    }
+
+    function generateWordCloud(csvContent) {
+    const words = parseCSVContent(csvContent);
+
+    // Sort words by frequency in descending order
+    words.sort((a, b) => b.size - a.size);
+
+    // Take the top 20 words
+    const topWords = words.slice(0, 20);
+
+    const layout = d3.layout.cloud()
+            .size([800, 600])
+            .words(topWords)
+            .padding(20)
+            .rotate(function (){ return Math.random() < 0.5 ? 0:90 }) // Rotate randomly between 0 and 90 degrees
+            .fontSize(d => d.size*5) // Adjust font size scaling
+            .on("end", draw);
+
+    layout.start();
+
+    function draw(words) {
+      const colors = ["steelblue", "green", "red", "purple", "orange", "brown", "teal", "gray", "navy", "olive"];
+      d3.select("#wordcloud").html('');
+      d3.select("#wordcloud")
+              .append("svg")
+              .attr("width", layout.size()[0])
+              .attr("height", layout.size()[1])
+
+              .append("g")
+              .attr("transform", `translate(${layout.size()[0] / 2},${layout.size()[1] / 2})`)
+              .selectAll("text")
+              .data(words)
+              .enter().append("text")
+              .style("font-size", d => `${d.size}px`)
+              .style("fill", (d, i) => colors[i % colors.length])
+              .attr("text-anchor", "middle")
+              .attr("transform", d => `translate(${d.x},${d.y})rotate(${d.rotate})`)
+              .text(d => d.text)
+              .style("pointer-events", "none") // Prevent interaction with the words
+              ;
+
+    }
+  }
+
+  function parseCSVContent(content) {
+    const rows = content.split('\n');
+
+    // Extract words and their frequencies from the second column
+    const words = rows.map(row => {
+      const columns = row.split(',');
+      return {
+        text: columns[0],  // Assuming words are in the first column
+        size: parseInt(columns[1], 10) || 0  // Assuming frequencies are in the second column
+      };
+    });
+
+    return words;
+  }
+</script>
+
+</body>
+</html>
